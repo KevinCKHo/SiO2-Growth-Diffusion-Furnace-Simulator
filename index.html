@@ -1,0 +1,1891 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SiO₂ Growth &amp; Diffusion — Interactive 3D Furnace Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  /* Light surface scale */
+  --c0:#f4f4f8;   /* page / canvas bg */
+  --c1:#ffffff;   /* panel bg */
+  --c2:#f0f0f5;   /* section / card bg */
+  --c3:#e6e6ee;   /* hover */
+  --c4:#d8d8e8;   /* pressed */
+  /* Borders */
+  --b0:#dcdce8;
+  --b1:#c8c8dc;
+  --b2:#a0a0c0;
+  /* Text */
+  --t0:#111122;   /* primary */
+  --t1:#44445e;   /* secondary */
+  --t2:#8888a4;   /* muted */
+  --t3:#b8b8cc;   /* very muted */
+  /* Accent */
+  --acc:#3355ee;
+  --acc-d:rgba(51,85,238,.10);
+  /* Semantic colours — adjusted for light bg readability */
+  --grn:#166534;--grn-d:rgba(22,101,52,.10);
+  --ylw:#4f46e5;--ylw-d:rgba(79,70,229,.10);
+  --cyn:#0369a1;--cyn-d:rgba(3,105,161,.10);
+  --red:#dc2626;
+  --r:6px;--rs:4px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--c0);color:var(--t0);font-family:'Inter',system-ui,sans-serif;overflow:hidden;height:100vh;width:100vw;font-size:12px;-webkit-font-smoothing:antialiased}
+#cvs{position:fixed;inset:0;z-index:0}
+
+/* ── PANELS ── */
+#left,#right{
+  position:fixed;top:0;width:276px;height:100vh;
+  background:var(--c1);overflow-y:auto;z-index:10;
+}
+#left{left:0;border-right:1px solid var(--b0);box-shadow:2px 0 12px rgba(0,0,0,.06)}
+#right{right:0;border-left:1px solid var(--b0);box-shadow:-2px 0 12px rgba(0,0,0,.06)}
+
+/* ── TOP BAR ── */
+#top{
+  position:fixed;top:0;left:276px;right:276px;height:48px;
+  background:var(--c1);border-bottom:1px solid var(--b0);
+  box-shadow:0 1px 8px rgba(0,0,0,.06);
+  display:flex;align-items:center;justify-content:center;z-index:10;gap:16px;
+}
+h1{font-size:11px;font-weight:600;color:var(--t2);letter-spacing:.1em;text-transform:uppercase}
+
+/* ── BOTTOM BAR ── */
+#bot{
+  position:fixed;bottom:0;left:276px;right:276px;height:54px;
+  background:var(--c1);border-top:1px solid var(--b0);
+  box-shadow:0 -1px 8px rgba(0,0,0,.06);
+  z-index:10;padding:0 20px;display:flex;align-items:center;gap:20px;
+}
+
+/* ── BADGE ── */
+.badge{font-size:10px;font-weight:600;padding:2px 10px;border-radius:20px;border:1px solid;letter-spacing:.04em}
+.badge.dry {color:#2563eb;border-color:rgba(37,99,235,.35);background:rgba(37,99,235,.08)}
+.badge.wet {color:#0891b2;border-color:rgba(8,145,178,.35);background:rgba(8,145,178,.08)}
+.badge.pdiff{color:#16a34a;border-color:rgba(22,163,74,.35);background:rgba(22,163,74,.08)}
+.badge.ndiff{color:#d97706;border-color:rgba(217,119,6,.35);background:rgba(217,119,6,.08)}
+
+/* ── SECTION ── */
+.sec{border-bottom:1px solid var(--b0)}
+.sec h2{
+  font-size:9.5px;font-weight:700;color:var(--t2);letter-spacing:.1em;
+  text-transform:uppercase;padding:11px 14px 0;margin:0 0 6px;border:none;
+  display:flex;align-items:center;gap:6px;
+}
+.sec h2::after{content:'';flex:1;height:1px;background:var(--b0);margin-left:6px}
+.sec-body{padding:0 14px 12px}
+
+/* ── ROWS ── */
+.row{display:flex;justify-content:space-between;align-items:center;
+  padding:2.5px 0;font-size:10.5px;color:var(--t1);gap:8px}
+.row .v {color:var(--grn);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500}
+.row .vw{color:var(--ylw);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500}
+.row .vb{color:var(--cyn);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500}
+
+/* ── FORMULA ── */
+.eq{
+  background:var(--c2);border-left:2px solid var(--acc);
+  padding:6px 9px;margin:5px 0;font-size:9.5px;
+  font-family:'JetBrains Mono',monospace;color:var(--t1);
+  line-height:1.85;border-radius:0 var(--rs) var(--rs) 0;
+}
+.formula-box{
+  background:var(--c2);border:1px solid var(--b0);
+  border-radius:var(--rs);padding:7px 9px;margin:5px 0;
+}
+
+/* ── PROCESS TABS (2×2 grid) ── */
+.ptabs{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.ptab{
+  display:block;padding:6px 4px;border:1px solid var(--b0);
+  border-radius:var(--rs);font-size:10px;font-weight:500;
+  cursor:pointer;transition:all .15s;color:var(--t1);
+  background:var(--c2);text-align:center;font-family:inherit;
+}
+.ptab:hover{background:var(--c3);color:var(--t0);border-color:var(--b1)}
+.ptab.dry.on {background:rgba(37,99,235,.08);color:#2563eb;border-color:rgba(37,99,235,.35)}
+.ptab.wet.on {background:rgba(8,145,178,.08);color:#0891b2;border-color:rgba(8,145,178,.35)}
+.ptab.pdiff.on{background:rgba(22,163,74,.08);color:#16a34a;border-color:rgba(22,163,74,.35)}
+.ptab.ndiff.on{background:rgba(217,119,6,.08);color:#d97706;border-color:rgba(217,119,6,.35)}
+
+/* ── SLIDERS ── */
+.sl{margin:7px 0}
+.sl label{display:flex;justify-content:space-between;font-size:10px;
+  color:var(--t1);margin-bottom:4px;font-weight:500}
+.sl label span{color:var(--grn);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600}
+input[type=range]{width:100%;height:2px;accent-color:var(--acc);cursor:pointer;border-radius:2px}
+
+/* ── BUTTONS ── */
+.btn{
+  padding:5px 12px;border:1px solid var(--b0);background:var(--c2);
+  color:var(--t1);border-radius:var(--rs);cursor:pointer;
+  font-size:10px;font-weight:500;margin:2px;transition:all .15s;font-family:inherit;
+}
+.btn:hover{background:var(--c3);color:var(--t0);border-color:var(--b1)}
+.btn.on{background:var(--acc-d);border-color:rgba(51,85,238,.4);color:var(--acc);font-weight:600}
+
+/* ── NUMBER INPUTS ── */
+input[type=number]{
+  background:var(--c2);border:1px solid var(--b0);color:var(--ylw);
+  font-size:10.5px;padding:4px 7px;border-radius:var(--rs);
+  font-family:'JetBrains Mono',monospace;transition:border .15s;width:72px;font-weight:600;
+}
+input[type=number]:focus{outline:none;border-color:var(--acc)}
+
+/* ── GAS DOTS ── */
+.gdot{display:inline-flex;align-items:center;gap:5px;font-size:10px;color:var(--t1);margin:2px 5px 2px 0}
+.gdot i{width:6px;height:6px;border-radius:50%;display:inline-block;flex-shrink:0}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:4px}
+::-webkit-scrollbar-track{background:var(--c2)}
+::-webkit-scrollbar-thumb{background:var(--b1);border-radius:2px}
+
+/* ── TOOLTIP ── */
+.tip{
+  position:fixed;background:var(--c1);border:1px solid var(--b1);
+  padding:10px 13px;border-radius:var(--r);font-size:10px;color:var(--t0);
+  pointer-events:none;z-index:200;max-width:220px;display:none;
+  line-height:1.75;box-shadow:0 8px 24px rgba(0,0,0,.12);
+}
+.tip b{color:var(--acc);display:block;margin-bottom:4px;font-size:11px;font-weight:600}
+
+/* ── BOTTOM DISPLAYS ── */
+#tdisp{font-size:15px;font-family:'JetBrains Mono',monospace;color:var(--grn);min-width:90px;font-weight:700}
+.pbo{height:4px;background:var(--b0);border-radius:2px;overflow:hidden;margin:4px 0;flex:1}
+.pbi{height:100%;background:linear-gradient(90deg,#6680ff,var(--acc));border-radius:2px;transition:width .12s}
+
+/* ── CANVASES ── */
+#mch,#dch{width:100%;height:76px;margin:6px 0;display:block;border-radius:var(--rs);background:var(--c2);border:1px solid var(--b0)}
+
+/* ── MISC ── */
+.note{font-size:9px;color:var(--t3);margin-top:3px}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:9.5px;font-weight:500;padding:1px 7px;border-radius:20px;border:1px solid}
+.chip.ok {color:var(--grn);border-color:var(--grn-d);background:var(--grn-d)}
+.chip.warn{color:var(--ylw);border-color:var(--ylw-d);background:var(--ylw-d)}
+</style>
+</head>
+<body>
+<div id="cvs"></div>
+
+<div id="top">
+  <h1>⚗ SiO₂ Growth &amp; Diffusion — Interactive 3D Furnace Simulator</h1>
+  <div class="badge dry" id="proc-badge">DRY OXIDE</div>
+  <a href="https://www.linkedin.com/in/chihkuan-ho/" target="_blank" rel="noopener"
+     style="position:absolute;right:16px;display:flex;align-items:center;gap:6px;
+            text-decoration:none;color:var(--t2);font-size:10px;font-weight:500;
+            padding:4px 8px;border-radius:4px;border:1px solid var(--b0);
+            background:var(--c2);transition:all .15s;"
+     onmouseover="this.style.borderColor='#0077B5';this.style.color='#0077B5';this.style.background='rgba(0,119,181,.07)'"
+     onmouseout="this.style.borderColor='var(--b0)';this.style.color='var(--t2)';this.style.background='var(--c2)'">
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="#0077B5" style="flex-shrink:0">
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433c-1.144 0-2.063-.926-2.063-2.065 0-1.138.92-2.063 2.063-2.063 1.14 0 2.064.925 2.064 2.063 0 1.139-.925 2.065-2.064 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z"/>
+    </svg>
+    Built by Kevin Ho with Claude
+  </a>
+</div>
+
+<!-- LEFT: Physics info -->
+<div id="left">
+<div style="margin-top:48px">
+
+<div class="sec">
+  <h2>Process</h2>
+  <div id="proc-name" style="font-size:12px;color:var(--acc);font-weight:700;margin:3px 0">Dry Oxidation (O₂)</div>
+  <div id="proc-rxn" class="eq">Si + O₂ → SiO₂</div>
+  <div id="proc-desc" style="font-size:9px;color:var(--t2);line-height:1.5;margin-top:3px">Pure oxygen thermal oxidation. High-density, high-quality oxide. Used for gate dielectrics. Slow rate, excellent interface.</div>
+</div>
+
+<div class="sec" id="oxide-sec">
+  <h2>Deal-Grove Growth Model</h2>
+  <div class="formula-box">
+    <div class="eq" style="border:none;background:none;padding:2px">x² + Ax = B(t + τ)<br>x = [−A + √(A² + 4Bt)] / 2</div>
+  </div>
+  <div class="row"><span>A — linear coeff</span><span class="v" id="v-A">—</span></div>
+  <div class="row"><span>B — parabolic coeff</span><span class="v" id="v-B">—</span></div>
+  <div class="row"><span>B/A — linear rate</span><span class="vb" id="v-BA">—</span></div>
+  <div class="row"><span>Oxide thickness</span><span class="vw" id="v-xox">0.0 nm</span></div>
+  <div class="row"><span>Growth rate</span><span class="v" id="v-rate">0.00 nm/min</span></div>
+  <div class="row"><span>Thin-film color</span><span class="v" id="v-color">—</span></div>
+  <canvas id="mch"></canvas>
+  <div class="note">Oxide thickness (nm) vs process time</div>
+</div>
+
+<div class="sec" id="diff-sec" style="display:none">
+  <h2>Diffusion — Fick's 2nd Law</h2>
+  <div class="formula-box">
+    <div class="eq" style="border:none;background:none;padding:2px">∂C/∂t = D·∂²C/∂x²<br>C(x,t) = Cs·erfc(x / 2√Dt)</div>
+  </div>
+  <div class="row"><span>Dopant species</span><span class="v" id="v-dop">—</span></div>
+  <div class="row"><span>D (diffusivity)</span><span class="vw" id="v-D">—</span></div>
+  <div class="row"><span>D₀ (pre-exp.)</span><span class="vb" id="v-D0">—</span></div>
+  <div class="row"><span>Eₐ (activation E)</span><span class="vb" id="v-Ea">—</span></div>
+  <div class="row"><span>√(Dt)</span><span class="v" id="v-sqDt">—</span></div>
+  <div class="row"><span>Junction depth xⱼ</span><span class="vw" id="v-xj">—</span></div>
+  <canvas id="dch"></canvas>
+  <div class="note">Junction depth (μm) vs process time</div>
+  <canvas id="cch" style="width:100%;height:76px;margin:6px 0;display:block;border-radius:4px;background:#f0f0f5;border:1px solid #dcdce8"></canvas>
+  <div class="note">log₁₀ C(x,t) — concentration vs depth, xⱼ cursor</div>
+</div>
+
+<div class="sec">
+  <h2>Gas Flow Physics</h2>
+  <div class="formula-box">
+    <div class="eq" style="border:none;background:none;padding:2px">Re = ρvD/μ (Reynolds #)<br>v(r) = v_max·(1 − r²/R²)<br>λ = kT / (√2·π·d²·P)</div>
+  </div>
+  <div class="row"><span>Flow rate</span><span class="vb" id="v-slm">—</span></div>
+  <div class="row"><span>Avg velocity</span><span class="v" id="v-vav">—</span></div>
+  <div class="row"><span>Center velocity v_max</span><span class="vw" id="v-vm">—</span></div>
+  <div class="row"><span>Reynolds number Re</span><span class="v" id="v-Re">—</span></div>
+  <div class="row"><span>Flow regime</span><span class="v" id="v-reg">—</span></div>
+  <div class="row"><span>Gas viscosity μ</span><span class="vb" id="v-mu">—</span></div>
+  <div class="row"><span>Mean free path λ</span><span class="v" id="v-mfp">—</span></div>
+  <div class="row"><span>Knudsen number Kn</span><span class="vb" id="v-Kn">—</span></div>
+</div>
+
+<div class="sec">
+  <h2>Thermodynamics</h2>
+  <div class="row"><span>Temperature</span><span class="vw" id="v-T">1000 °C</span></div>
+  <div class="row"><span>Temperature (K)</span><span class="vb" id="v-TK">1273 K</span></div>
+  <div class="row"><span>Thermal energy kT</span><span class="v" id="v-kT">0.1096 eV</span></div>
+  <div class="row"><span>Boltzmann k</span><span class="vb">8.617×10⁻⁵ eV/K</span></div>
+</div>
+
+<div class="sec">
+  <h2>Gas Species</h2>
+  <div id="gleg"></div>
+</div>
+
+</div>
+</div>
+
+<!-- RIGHT: Controls -->
+<div id="right">
+<div style="margin-top:48px">
+
+<div class="sec">
+  <h2>Process Type</h2>
+  <div class="sec-body">
+    <div class="ptabs">
+      <span class="ptab dry on" onclick="setProc('dry')">Dry O₂</span>
+      <span class="ptab wet" onclick="setProc('wet')">Wet H₂O</span>
+      <span class="ptab pdiff" onclick="setProc('pdiff')">P-Diff (B)</span>
+      <span class="ptab ndiff" onclick="setProc('ndiff')">N-Diff (P)</span>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Furnace Parameters</h2>
+  <div class="sec-body">
+    <div class="sl">
+      <label>Temperature <span id="l-T">1000 °C</span></label>
+      <input type="range" id="sl-T" min="600" max="1200" value="1000" oninput="onT(this.value)">
+    </div>
+    <div class="sl">
+      <label>Gas Flow Rate <span id="l-F">2.0 SLM</span></label>
+      <input type="range" id="sl-F" min="2" max="40" value="8" step="1" oninput="onF(this.value)">
+    </div>
+    <div class="sl">
+      <label>Time Acceleration <span id="l-S">20×</span></label>
+      <input type="range" id="sl-S" min="1" max="500" value="20" step="1" oninput="onS(this.value)">
+    </div>
+    <div class="sl">
+      <label>Particle Density <span id="l-P">100%</span></label>
+      <input type="range" id="sl-P" min="10" max="100" value="100" step="10" oninput="onPD(this.value)">
+    </div>
+    <div class="sl">
+      <label>Max Process Time <span id="l-MT">2.0 hr</span></label>
+      <input type="range" id="sl-MT" min="0.25" max="24" value="2" step="0.25" oninput="onMaxTime(this.value)">
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;margin-top:4px">
+      <input type="number" id="inp-MT" min="0.25" max="24" value="2" step="0.25"
+             style="width:72px" oninput="onMaxTimeTyped(this.value)">
+      <span style="font-size:10px;color:var(--t2)">hours</span>
+      <button class="btn" id="btn-mt-stop" onclick="toggleMaxTimeStop()" style="margin-left:auto">Stop at max OFF</button>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Target Thickness / Depth</h2>
+  <div id="tgt-oxide-wrap">
+    <div class="sl">
+      <label>Target oxide thickness <span id="l-tgt-ox" style="color:#4f46e5">100 nm</span></label>
+      <input type="range" id="sl-tgt-ox" min="1" max="2000" value="100" step="1"
+             oninput="onTargetOx(this.value)">
+    </div>
+    <div style="display:flex;gap:4px;align-items:center;margin:4px 0">
+      <input type="number" id="inp-tgt-ox" min="1" max="2000" value="100" step="1"
+             style="width:70px;
+                    color:#4f46e5"
+             oninput="onTargetOxTyped(this.value)">
+      <span style="font-size:10px;color:var(--t2)">nm</span>
+      <button class="btn" style="margin-left:auto" onclick="autoStopToggle()" id="btn-autostop">⏹ Auto-stop OFF</button>
+    </div>
+  </div>
+  <div id="tgt-diff-wrap" style="display:none">
+    <div class="sl">
+      <label>Target junction depth <span id="l-tgt-xj" style="color:#4f46e5">1.0 μm</span></label>
+      <input type="range" id="sl-tgt-xj" min="0.1" max="20" value="1" step="0.1"
+             oninput="onTargetXj(this.value)">
+    </div>
+    <div style="display:flex;gap:4px;align-items:center;margin:4px 0">
+      <input type="number" id="inp-tgt-xj" min="0.1" max="20" value="1" step="0.1"
+             style="width:70px;
+                    color:#4f46e5"
+             oninput="onTargetXjTyped(this.value)">
+      <span style="font-size:10px;color:var(--t2)">μm</span>
+      <button class="btn" style="margin-left:auto" onclick="autoStopToggle()" id="btn-autostop2">⏹ Auto-stop OFF</button>
+    </div>
+  </div>
+  <div id="tgt-progress-wrap" style="margin-top:6px">
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--t2);margin-bottom:2px">
+      <span>Progress to target</span>
+      <span id="tgt-pct" style="color:#4f46e5;font-family:monospace">0.0%</span>
+    </div>
+    <div class="pbo" style="height:8px">
+      <div id="tgt-bar" class="pbi" style="width:0%;background:linear-gradient(90deg,#114488,#ffcc44)"></div>
+    </div>
+    <div id="tgt-reached" style="display:none;font-size:10px;color:var(--grn);margin-top:4px;text-align:center;font-weight:500">
+      ✓ Target reached — simulation paused
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Simulation Control</h2>
+  <div class="sec-body">
+  <button class="btn on" id="btn-run" onclick="toggleRun()">⏸ Pause</button>
+  <button class="btn" onclick="resetSim()">↺ Reset</button>
+  <br>
+  <button class="btn" id="btn-vf" onclick="toggleVF()">↗ Velocity Field</button>
+  <button class="btn" id="btn-pt" onclick="togglePT()">◉ Particles ON</button>
+  <br>
+  <button class="btn" id="btn-ar" onclick="toggleAR()">⟳ Auto-Rotate OFF</button>
+  <button class="btn" id="btn-xs" onclick="toggleXS()">✂ Cross-Section OFF</button>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Camera Views</h2>
+  <div class="sec-body">
+  <button class="btn" onclick="setView('iso')">Isometric</button>
+  <button class="btn" onclick="setView('side')">Side</button>
+  <button class="btn" onclick="setView('top')">Top</button>
+  <button class="btn" onclick="setView('front')">End</button>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Process Gases (Current)</h2>
+  <div class="sec-body">
+  <div id="gpanel" style="font-size:10px;color:var(--t1);line-height:1.9"></div>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Wafer / Tube Specs</h2>
+  <div class="sec-body">
+  <div class="row"><span>Substrate</span><span class="vb">Si (100) p-type</span></div>
+  <div class="row"><span>Wafer diameter</span><span class="vb">150 mm (6")</span></div>
+  <div class="row"><span>Substrate thickness</span><span class="vb">650 μm (standard)</span></div>
+  <div class="row"><span>Tube inner Ø</span><span class="vb">200 mm</span></div>
+  <div class="row"><span>Tube material</span><span class="vb">Fused quartz</span></div>
+  <div class="row"><span>Wafers in boat</span><span class="vb">9 (shown)</span></div>
+  <div class="row"><span>Process pressure</span><span class="vb">1 atm (760 Torr)</span></div>
+  <div style="margin-top:6px;padding:5px 7px;background:var(--c2);border-radius:var(--rs);border-left:2px solid var(--acc)">
+    <div style="font-size:9px;font-weight:600;color:var(--acc);margin-bottom:2px">SiO₂ / Si Growth Ratio</div>
+    <div class="row"><span>Si consumed / nm SiO₂</span><span class="v">0.456 nm</span></div>
+    <div class="row"><span>Oxide above surface</span><span class="v">54.4 %</span></div>
+    <div class="row"><span>Oxide into Si</span><span class="v">45.6 %</span></div>
+    <div style="font-size:8.5px;color:var(--t3);margin-top:3px">Animation exaggerated for visibility.<br>All ratios are physically accurate.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Learning Notes</h2>
+  <div style="font-size:9px;color:var(--t1);line-height:1.6">
+    <b style="color:var(--acc)">Dry vs Wet:</b> Dry gives denser, lower-interface-state oxide but 5–10× slower. Wet uses H₂O vapor for thick field oxide.<br><br>
+    <b style="color:var(--acc)">Deal-Grove:</b> Parabolic (B) dominates thick oxide; linear (B/A) dominates thin oxide regime.<br><br>
+    <b style="color:var(--acc)">Diffusion:</b> Arrhenius D = D₀·exp(−Eₐ/kT). Junction depth ∝ √(Dt).<br><br>
+    <b style="color:var(--acc)">Laminar Flow:</b> Re &lt; 2300. Parabolic profile ensures uniform gas delivery to wafer surface.
+  </div>
+</div>
+
+<div class="sec">
+  <h2>Navigation</h2>
+  <div style="font-size:9px;color:var(--t1);line-height:1.7">
+    Left-drag — orbit &nbsp;|&nbsp; Scroll — zoom<br>
+    Right-drag — pan &nbsp;|&nbsp; Click wafer — info<br>
+    Hover particle — gas species info
+  </div>
+</div>
+
+</div>
+</div>
+
+<!-- BOTTOM -->
+<div id="bot">
+  <div style="min-width:90px">
+    <div style="font-size:9px;color:var(--t2);margin-bottom:1px">PROCESS TIME</div>
+    <div id="tdisp">0:00:00</div>
+  </div>
+  <div style="flex:1">
+    <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--t2);margin-bottom:2px">
+      <span id="prog-lbl">Oxide: <span style="color:var(--cyn);font-weight:600">0.0 nm</span></span>
+      <span id="prog-tip">Deal-Grove parabolic growth</span>
+    </div>
+    <div class="pbo"><div class="pbi" id="pbar" style="width:0%"></div></div>
+  </div>
+  <div style="text-align:right;min-width:80px">
+    <div style="font-size:9px;color:var(--t2)">FURNACE</div>
+    <div id="T-readout" style="font-size:16px;color:#ff7733;font-family:monospace;font-weight:700">1000°C</div>
+  </div>
+</div>
+
+<div class="tip" id="tip"></div>
+
+<!-- Three.js + OrbitControls -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+// ═══════════════════════════════════════════════════════════════
+// PHYSICS CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+const kb  = 8.617e-5;   // eV/K
+const kSI = 1.38e-23;   // J/K
+const NA  = 6.022e23;
+
+// Deal-Grove parameters for Si(100) (from Jaeger, Wolf & Tauber literature)
+// B  = B0 * exp(-Eb/kT)   [μm²/hr]   parabolic rate constant
+// B/A= (B/A)0 * exp(-Eba/kT) [μm/hr] linear rate constant
+const DG = {
+  dry: { B0:7.72e2, Eb:1.23, BA0:6.23e6, EbA:2.00 },
+  wet: { B0:3.86e2, Eb:0.78, BA0:1.63e8, EbA:2.05 }
+};
+
+// Dopant diffusion in Si (Jaeger: Introduction to Microelectronic Fabrication)
+const DIFF = {
+  pdiff: { sym:'B',  name:'Boron',      D0:0.76,  Ea:3.46, Cs:5e19, type:'P' },
+  ndiff: { sym:'P',  name:'Phosphorus', D0:3.85,  Ea:3.66, Cs:1e20, type:'N' }
+};
+
+// Gas mixture per process
+const GASES = {
+  dry:   [
+    {nm:'O₂',   col:'#3377ff', role:'Oxidant',       mw:32,  frac:0.50, mu0:2.04e-5, Suth:127},
+    {nm:'N₂',   col:'#99aabb', role:'Carrier',        mw:28,  frac:0.50, mu0:1.76e-5, Suth:105}
+  ],
+  wet:   [
+    {nm:'H₂O',  col:'#33ddff', role:'Oxidant (steam)',mw:18,  frac:0.55, mu0:1.26e-5, Suth:650},
+    {nm:'O₂',   col:'#3377ff', role:'Carrier O₂',     mw:32,  frac:0.30, mu0:2.04e-5, Suth:127},
+    {nm:'H₂',   col:'#a16207', role:'Byproduct',      mw:2,   frac:0.15, mu0:8.41e-6, Suth:79 }
+  ],
+  pdiff: [
+    {nm:'BCl₃', col:'#15803d', role:'Dopant source',  mw:117, frac:0.05, mu0:1.5e-5,  Suth:300},
+    {nm:'O₂',   col:'#3377ff', role:'Oxidizer',       mw:32,  frac:0.25, mu0:2.04e-5, Suth:127},
+    {nm:'N₂',   col:'#99aabb', role:'Carrier',        mw:28,  frac:0.70, mu0:1.76e-5, Suth:105}
+  ],
+  ndiff: [
+    {nm:'POCl₃',col:'#ffaa33', role:'Dopant source',  mw:153, frac:0.05, mu0:1.4e-5,  Suth:300},
+    {nm:'O₂',   col:'#3377ff', role:'Oxidizer',       mw:32,  frac:0.25, mu0:2.04e-5, Suth:127},
+    {nm:'N₂',   col:'#99aabb', role:'Carrier',        mw:28,  frac:0.70, mu0:1.76e-5, Suth:105}
+  ]
+};
+
+const PROC_INFO = {
+  dry:   {name:'Dry Oxidation (O₂)',      rxn:'Si + O₂  →  SiO₂',
+    desc:'Pure oxygen thermal oxidation. Dense high-quality oxide, superior MOS interface (Dit ~10¹⁰ cm⁻²eV⁻¹). Used for gate dielectrics, pad oxide. Slower growth rate. Linear-parabolic Deal-Grove kinetics.'},
+  wet:   {name:'Wet Oxidation (H₂O)',     rxn:'Si + 2H₂O  →  SiO₂ + 2H₂↑',
+    desc:'Steam (pyrogenic H₂O) oxidation. 5–10× faster than dry. Lower density, higher Dit. Used for thick field oxide, LOCOS isolation. H₂O diffuses through oxide faster than O₂.'},
+  pdiff: {name:'P-Type Diffusion (Boron)',rxn:'BCl₃ + O₂ → B₂O₃ + Cl₂\nB₂O₃ + Si → B↓ + SiO₂',
+    desc:'Boron (acceptor) diffusion creates p-type regions. Low activation energy → fast diffuser. Phosphosilicate glass (BSG) acts as source. Creates p⁺ source/drain, base, resistors.'},
+  ndiff: {name:'N-Type Diffusion (Phosphorus)',rxn:'4POCl₃+3O₂ → 2P₂O₅+6Cl₂\nP₂O₅ + Si → P↓ + SiO₂',
+    desc:'Phosphorus (donor) diffusion creates n-type regions. POCl₃ liquid source. Also acts as metallic contaminant getter. Creates n⁺ emitter, source/drain, buried layers. PSG forms on surface.'}
+};
+
+// ═══════════════════════════════════════════════════════════════
+// SIMULATION STATE
+// ═══════════════════════════════════════════════════════════════
+const S = {
+  proc:'dry', T:1000, flowSLM:2.0, speed:20,
+  running:true, t:0,
+  showPart:true, showVF:false, autoRot:false, xs:false,
+  partDensity:1.0,
+  targetOx: 100,   // nm
+  targetXj: 1.0,   // μm
+  autoStop: false,
+  targetReached: false,
+  maxTime: 2.0,    // hours — editable process time window
+  stopAtMax: false,
+};
+
+// ═══════════════════════════════════════════════════════════════
+// THREE.JS SCENE
+// ═══════════════════════════════════════════════════════════════
+const scene   = new THREE.Scene();
+scene.background = new THREE.Color(0x12121a);
+scene.fog = new THREE.Fog(0x12121a, 70, 140);
+
+const W = window.innerWidth, H = window.innerHeight;
+const camera = new THREE.PerspectiveCamera(45, W/H, 0.1, 500);
+camera.position.set(22, 13, 32);
+
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+renderer.setSize(W, H);
+renderer.shadowMap.enabled = true;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.85;
+document.getElementById('cvs').appendChild(renderer.domElement);
+
+const ctrl = new THREE.OrbitControls(camera, renderer.domElement);
+ctrl.enableDamping = true;
+ctrl.dampingFactor = 0.06;
+ctrl.target.set(0,0,0);
+ctrl.minDistance = 4;
+ctrl.maxDistance = 90;
+ctrl.autoRotate = false;
+ctrl.autoRotateSpeed = 0.5;
+
+// ═══════════════════════════════════════════════════════════════
+// LIGHTS
+// ═══════════════════════════════════════════════════════════════
+scene.add(new THREE.AmbientLight(0x0d1530, 0.6));
+
+const sun = new THREE.DirectionalLight(0x8899cc, 0.7);
+sun.position.set(15, 25, 10);
+sun.castShadow = true;
+scene.add(sun);
+
+// Heat glow lights inside furnace
+const hL = [
+  new THREE.PointLight(0xff5500, 2.5, 22, 2),
+  new THREE.PointLight(0xff3300, 1.8, 18, 2),
+  new THREE.PointLight(0xff3300, 1.8, 18, 2),
+];
+hL[0].position.set(0, 0, 0);
+hL[1].position.set(-9, 0, 0);
+hL[2].position.set(9, 0, 0);
+hL.forEach(l => scene.add(l));
+
+// Cool zone blue lights at ends
+const cL = [new THREE.PointLight(0x3366ff,0.6,10), new THREE.PointLight(0x3366ff,0.6,10)];
+cL[0].position.set(-22,0,0); cL[1].position.set(22,0,0);
+cL.forEach(l => scene.add(l));
+
+// ═══════════════════════════════════════════════════════════════
+// DIMENSIONS
+// ═══════════════════════════════════════════════════════════════
+const TL = 42;    // tube length (scene units)
+const TR = 4.0;   // tube inner radius
+const TOr= 4.6;   // tube outer radius
+const WR = 3.1;   // wafer radius
+const WT = 0.065; // wafer thickness
+const NW = 9;     // number of wafers
+const WS = 2.6;   // wafer spacing
+const WX0= -(NW/2)*WS + WS/2; // first wafer x
+
+// ═══════════════════════════════════════════════════════════════
+// FURNACE TUBE (quartz)
+// ═══════════════════════════════════════════════════════════════
+// Outer wall (semi-transparent quartz look)
+const qMat = new THREE.MeshPhysicalMaterial({
+  color:0x667799, transparent:true, opacity:0.12,
+  roughness:0.05, metalness:0.0, side:THREE.BackSide,
+  envMapIntensity:0.5
+});
+const tubeGeo = new THREE.CylinderGeometry(TOr, TOr, TL, 80, 1, true);
+tubeGeo.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
+scene.add(new THREE.Mesh(tubeGeo, qMat));
+
+// Inner surface with temperature gradient (vertex colors)
+const innerGeo = new THREE.CylinderGeometry(TR, TR, TL, 80, 24, true);
+innerGeo.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
+const iPos = innerGeo.attributes.position;
+const iCol = new Float32Array(iPos.count * 3);
+for (let i = 0; i < iPos.count; i++) {
+  const x = iPos.getX(i);
+  const t = (x + TL/2) / TL;
+  // Gaussian hot zone centred at middle, sigma = 0.22
+  const heat = Math.exp(-((t-0.5)**2) / (2*0.22**2));
+  iCol[i*3+0] = Math.min(1, heat*1.1 + 0.05);
+  iCol[i*3+1] = heat*0.35 + 0.02;
+  iCol[i*3+2] = (1-heat)*0.25 + 0.03;
+}
+innerGeo.setAttribute('color', new THREE.BufferAttribute(iCol,3));
+const innerMat = new THREE.MeshBasicMaterial({vertexColors:true, side:THREE.BackSide, transparent:true, opacity:0.55});
+scene.add(new THREE.Mesh(innerGeo, innerMat));
+
+// End flanges
+[-TL/2, TL/2].forEach(x => {
+  const fg = new THREE.TorusGeometry(TOr+0.3, 0.35, 8, 40);
+  const fm = new THREE.MeshPhongMaterial({color:0x445566, shininess:80});
+  const fl = new THREE.Mesh(fg, fm);
+  fl.position.set(x, 0, 0);
+  fl.rotation.y = Math.PI/2;
+  scene.add(fl);
+});
+
+// End caps (solid)
+[-TL/2, TL/2].forEach((x,i) => {
+  const cg = new THREE.CircleGeometry(TOr+0.3, 40);
+  const cm = new THREE.MeshPhongMaterial({color:0x334455, side:THREE.DoubleSide});
+  const cc = new THREE.Mesh(cg, cm);
+  cc.position.set(x+(i===0?-0.1:0.1), 0, 0);
+  cc.rotation.y = Math.PI/2;
+  scene.add(cc);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// HEATING COIL (resistive wire)
+// ═══════════════════════════════════════════════════════════════
+const CR = TOr + 0.9;
+const TURNS = 22;
+const coilPts = [];
+for (let i = 0; i <= TURNS*80; i++) {
+  const frac = i/(TURNS*80);
+  const ang  = frac * TURNS * Math.PI * 2;
+  const xc   = (frac-0.5) * TL * 0.88;
+  coilPts.push(new THREE.Vector3(xc, Math.cos(ang)*CR, Math.sin(ang)*CR));
+}
+const coilCurve = new THREE.CatmullRomCurve3(coilPts);
+const coilGeo   = new THREE.TubeGeometry(coilCurve, TURNS*80, 0.10, 6, false);
+const coilMat   = new THREE.MeshPhongMaterial({color:0xcc2200, emissive:0x881100, emissiveIntensity:1.2, shininess:120});
+const coilMesh  = new THREE.Mesh(coilGeo, coilMat);
+scene.add(coilMesh);
+
+// Ceramic housing (octagonal shell around coil)
+const shGeo = new THREE.CylinderGeometry(CR+0.9, CR+0.9, TL*0.9, 8, 1, true);
+shGeo.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
+const shMat = new THREE.MeshPhongMaterial({color:0x1a2233, side:THREE.BackSide, transparent:true, opacity:0.35, shininess:5});
+scene.add(new THREE.Mesh(shGeo, shMat));
+
+// ═══════════════════════════════════════════════════════════════
+// GAS INLET / OUTLET
+// ═══════════════════════════════════════════════════════════════
+[-1,1].forEach(side => {
+  const cx = side * (TL/2 + 2.5);
+  // Cone
+  const cg = new THREE.ConeGeometry(TR*0.55, 3.5, 16);
+  cg.applyMatrix4(new THREE.Matrix4().makeRotationZ(side*Math.PI/2));
+  const cm = new THREE.MeshPhongMaterial({color:0x334455, shininess:60});
+  const cc = new THREE.Mesh(cg, cm);
+  cc.position.set(cx, 0, 0);
+  scene.add(cc);
+  // Pipe
+  const pg = new THREE.CylinderGeometry(0.45, 0.45, 1.8, 10);
+  pg.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
+  const pc = new THREE.Mesh(pg, cm.clone());
+  pc.position.set(cx + side*2.2, 0, 0);
+  scene.add(pc);
+});
+
+// Inlet flow arrows (animated, 3 lanes)
+const inletArrows = [];
+[-1.5,0,1.5].forEach((y, i) => {
+  const ag = new THREE.ConeGeometry(0.12, 0.5, 6);
+  ag.applyMatrix4(new THREE.Matrix4().makeRotationZ(-Math.PI/2));
+  const am = new THREE.MeshBasicMaterial({color:0x3366ff, transparent:true, opacity:0.7});
+  const arrow = new THREE.Mesh(ag, am);
+  arrow.position.set(-TL/2 - 1, y, 0);
+  scene.add(arrow);
+  inletArrows.push({mesh:arrow, baseX:arrow.position.x, phase:i*0.7});
+});
+
+// ═══════════════════════════════════════════════════════════════
+// QUARTZ BOAT / RODS — run outside the wafer disc edge
+// ═══════════════════════════════════════════════════════════════
+// Rod positions must satisfy r > WR so they never pierce the wafer face.
+// With z=±1.5 and y=-3.04: r=√(3.04²+1.5²)=3.39 > WR=3.1  ✓
+// The rods sit just below and to each side of the wafer lower edge,
+// acting as the quartz boat support rails.
+const rodMat = new THREE.MeshPhongMaterial({
+  color: 0xddeeff,
+  emissive: 0x335566,
+  emissiveIntensity: 0.55,
+  shininess: 180,
+  transparent: true,
+  opacity: 0.90,
+  specular: 0xffffff,
+});
+[-1.5, 1.5].forEach(z => {
+  const rg = new THREE.CylinderGeometry(0.16, 0.16, TL*0.88, 10);
+  rg.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
+  const rod = new THREE.Mesh(rg, rodMat);
+  // y = -3.04 → r = 3.39 > WR=3.1, so rod clears all wafer discs
+  rod.position.set(0, -WR * 0.98, z);
+  scene.add(rod);
+});
+
+// ═══════════════════════════════════════════════════════════════
+// WAFERS + OXIDE LAYERS + DIFFUSION LAYERS
+// ═══════════════════════════════════════════════════════════════
+const wafers=[], oxides=[], diffLayers=[];
+
+const siMat = new THREE.MeshPhysicalMaterial({
+  color:0x1a1c2e, metalness:0.5, roughness:0.15,
+  reflectivity:0.8, clearcoat:0.3, clearcoatRoughness:0.1,
+});
+
+for (let i=0; i<NW; i++) {
+  const x = WX0 + i*WS;
+  // Wafer
+  const wg = new THREE.CylinderGeometry(WR, WR, WT, 72);
+  wg.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
+  const w = new THREE.Mesh(wg, siMat.clone());
+  w.position.set(x, 0, 0);
+  w.castShadow = true;
+  w.userData = {type:'wafer', idx:i};
+  scene.add(w);
+  wafers.push(w);
+
+  // Oxide ring (grows)
+  const og = new THREE.CylinderGeometry(WR+0.01, WR+0.01, WT*0.5, 72);
+  og.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
+  const om = new THREE.MeshPhysicalMaterial({
+    color:0x88ccff, transparent:true, opacity:0.75,
+    roughness:0.05, metalness:0, clearcoat:1.0, clearcoatRoughness:0.02,
+    emissive:0x224455, emissiveIntensity:0.3
+  });
+  const ox = new THREE.Mesh(og, om);
+  ox.position.set(x, 0, 0);
+  ox.visible = false;
+  ox.userData = {type:'oxide', idx:i};
+  scene.add(ox);
+  oxides.push(ox);
+
+  // Diffusion layer (colored glow on wafer surface)
+  const dg = new THREE.CylinderGeometry(WR*0.98, WR*0.98, WT, 72);
+  dg.applyMatrix4(new THREE.Matrix4().makeRotationZ(Math.PI/2));
+  const dm = new THREE.MeshBasicMaterial({color:0x44ff88, transparent:true, opacity:0.0, depthWrite:false});
+  const dl = new THREE.Mesh(dg, dm);
+  dl.position.set(x, 0, 0);
+  scene.add(dl);
+  diffLayers.push(dl);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VELOCITY FIELD ARROWS — parabolic flow profile at 4 inter-wafer
+// cross-section planes along the tube (not just x=0).
+// Arrow length & colour encode local velocity magnitude:
+//   v(r) = v_max × (1 − r²/R²)   — Hagen-Poiseuille parabola
+// Blue (centre, fast) → cyan (wall, slow)
+// ═══════════════════════════════════════════════════════════════
+const VF_X_PLANES = [-9.1, -3.9, 3.9, 9.1];  // inter-wafer midpoints
+const vfArrows = [];
+for (const xPos of VF_X_PLANES) {
+  for (let y=-TR+0.5; y<=TR-0.5; y+=0.8) {
+    for (let z=-TR+0.5; z<=TR-0.5; z+=0.8) {
+      const r = Math.sqrt(y*y+z*z);
+      if (r >= TR) continue;
+      const vf = Math.max(0, 1-(r*r)/(TR*TR));
+      const len = vf * 1.6 + 0.2;
+      const ag = new THREE.ConeGeometry(0.05, len, 5);
+      ag.applyMatrix4(new THREE.Matrix4().makeRotationZ(-Math.PI/2));
+      ag.applyMatrix4(new THREE.Matrix4().makeTranslation(len/2, 0, 0));
+      const am = new THREE.MeshBasicMaterial({
+        color: new THREE.Color().setHSL(0.6 - vf*0.25, 1, 0.5+vf*0.25),
+        transparent:true, opacity:0.55
+      });
+      const av = new THREE.Mesh(ag, am);
+      av.position.set(xPos, y, z);
+      av.visible = false;
+      scene.add(av);
+      vfArrows.push(av);
+    }
+  }
+}
+
+// Temperature scale bar (bottom of furnace exterior)
+const nSeg = 30;
+for (let i=0; i<nSeg; i++) {
+  const t = i/nSeg;
+  const heat = Math.exp(-((t-0.5)**2)/(2*0.22**2));
+  const c = new THREE.Color();
+  c.setRGB(Math.min(1,heat*1.1+0.05), heat*0.35+0.02, (1-heat)*0.25+0.03);
+  const sg = new THREE.BoxGeometry(TL/nSeg - 0.05, 0.18, 0.18);
+  const sm = new THREE.MeshBasicMaterial({color:c});
+  const sb = new THREE.Mesh(sg, sm);
+  sb.position.set(-TL/2 + (i+0.5)*(TL/nSeg), -TOr-0.5, 0);
+  scene.add(sb);
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════
+// PARTICLE SYSTEM
+// ═══════════════════════════════════════════════════════════════
+const NMAX = 1000;
+const pPos = new Float32Array(NMAX*3);
+const pCol = new Float32Array(NMAX*3);
+const pSz  = new Float32Array(NMAX);
+const pVx  = new Float32Array(NMAX);
+const pVy  = new Float32Array(NMAX);
+const pVz  = new Float32Array(NMAX);
+const pAge = new Float32Array(NMAX);
+
+function hexRGB(h) {
+  h = h.replace('#','');
+  return {r:parseInt(h.slice(0,2),16)/255, g:parseInt(h.slice(2,4),16)/255, b:parseInt(h.slice(4,6),16)/255};
+}
+
+function pickGas() {
+  const gs = GASES[S.proc];
+  const rnd = Math.random();
+  let cum=0;
+  for (const g of gs) {
+    cum += g.frac;
+    if (rnd < cum) return g;
+  }
+  return gs[0];
+}
+
+function vmax() {
+  // ── Physical calculation ──────────────────────────────────────
+  // Scene scale: WR=3.1 units = 75 mm → 1 unit = 24.2 mm ≈ 0.025 m
+  // Tube inner radius: TR=4 units = 0.10 m  (200 mm ID tube)
+  // Cross-section: A = π × (0.10)² = 0.03142 m²
+  const TK    = S.T + 273.15;
+  const Q_stp = S.flowSLM / 60000;             // m³/s at STP (0 °C, 1 atm)
+  const Q_T   = Q_stp * (TK / 273.15);         // m³/s at process temp (ideal gas)
+  const A_m2  = Math.PI * (TR * 0.025) ** 2;   // m²  (1 unit = 0.025 m)
+  const v_avg = Q_T / A_m2;                     // laminar average velocity [m/s]
+  const v_ctr = 2 * v_avg;                      // parabolic centre = 2 × average [m/s]
+
+  // ── Convert to animation units ────────────────────────────────
+  // pos update loop does:  pos += vax * dt * 60
+  // At 60 fps, dt≈1/60 → effective step per frame = vax
+  // vmax [units/frame] = v_ctr [m/s] / 0.025 [m/unit] / 60 [frames/s]
+  // Visual ×20 boost — real furnace gas is ~5-50 mm/s (nearly invisible
+  // at true scale); the boost preserves all RATIOS between flow-rate settings.
+  return (v_ctr / 0.025 / 60) * 20;
+}
+
+function initParticle(i) {
+  const r = Math.sqrt(Math.random()) * (TR-0.15);
+  const ang = Math.random()*Math.PI*2;
+  pPos[i*3]   = -TL/2 + Math.random()*TL;
+  pPos[i*3+1] = Math.cos(ang)*r;
+  pPos[i*3+2] = Math.sin(ang)*r;
+  const g = pickGas();
+  const rgb = hexRGB(g.col);
+  pCol[i*3]   = rgb.r; pCol[i*3+1] = rgb.g; pCol[i*3+2] = rgb.b;
+  const vm = vmax();
+  pVx[i] = vm * Math.max(0, 1-(r*r)/(TR*TR));
+  pVy[i] = (Math.random()-0.5)*0.008;
+  pVz[i] = (Math.random()-0.5)*0.008;
+  pSz[i] = 1.2 + Math.random()*1.8;
+  pAge[i] = Math.random();
+}
+
+for (let i=0; i<NMAX; i++) initParticle(i);
+
+const pGeo = new THREE.BufferGeometry();
+pGeo.setAttribute('position', new THREE.BufferAttribute(pPos,3));
+pGeo.setAttribute('color',    new THREE.BufferAttribute(pCol,3));
+pGeo.setAttribute('size',     new THREE.BufferAttribute(pSz ,1));
+
+const pMat = new THREE.PointsMaterial({
+  size:0.09, vertexColors:true, transparent:true, opacity:0.82,
+  sizeAttenuation:true, blending:THREE.AdditiveBlending, depthWrite:false
+});
+const pSys = new THREE.Points(pGeo, pMat);
+scene.add(pSys);
+
+// ═══════════════════════════════════════════════════════════════
+// PHYSICS CALCULATION FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+// Sutherland viscosity law
+function visc(mu0, T_ref, Suth, TK) {
+  return mu0 * ((T_ref+Suth)/(TK+Suth)) * Math.pow(TK/T_ref, 1.5);
+}
+
+function erf(x) {
+  const t = 1/(1+0.3275911*Math.abs(x));
+  const p = t*(0.254829592+t*(-0.284496736+t*(1.421413741+t*(-1.453152027+t*1.061405429))));
+  const r = 1-p*Math.exp(-x*x);
+  return x>=0 ? r : -r;
+}
+function erfc(x){ return 1-erf(x); }
+function erfcinv(x) {
+  if (x>=2) return -Infinity;
+  if (x<=0) return Infinity;
+  const xx = x<1 ? x : 2-x;
+  const t  = Math.sqrt(-2*Math.log(xx/2));
+  let r = -0.70711*((2.30753+t*0.27061)/(1+t*(0.99229+t*0.04481))-t);
+  for (let j=0;j<2;j++){
+    const e = erfc(r)-xx;
+    r += e/(1.12837916709551257*Math.exp(-r*r)-r*e);
+  }
+  return x<1 ? r : -r;
+}
+
+function calcDG(t_sec) {
+  const p = DG[S.proc];
+  if (!p) return {x:0, rate:0, A:0, B:0, BA:0};
+  const TK = S.T+273.15;
+  const kT = kb*TK;
+  const B  = p.B0  * Math.exp(-p.Eb /kT);   // μm²/hr
+  const BA = p.BA0 * Math.exp(-p.EbA/kT);   // μm/hr
+  const A  = B/BA;                            // μm
+  const t_hr = t_sec/3600;
+  const x  = (-A + Math.sqrt(A*A + 4*B*t_hr))/2;  // μm
+  const rate = B/(2*x+A);   // μm/hr → convert to nm/min
+  return {x:Math.max(0,x)*1000, rate:Math.max(0,rate)*1000/60, A, B, BA};
+}
+
+function calcDiff(t_sec) {
+  const p = DIFF[S.proc];
+  if (!p) return {D:0, sqDt:0, xj:0};
+  const TK = S.T+273.15;
+  const D  = p.D0 * Math.exp(-p.Ea/(kb*TK));  // cm²/s
+  const Dt = D * t_sec;
+  const sqDt_cm = Math.sqrt(Math.max(Dt,0));
+  let xj_um = 0;
+  if (sqDt_cm > 1e-10) {
+    const ratio = 1e15/p.Cs;  // N_background / Cs
+    const ei    = erfcinv(ratio);
+    xj_um = 2*sqDt_cm*ei*1e4;  // cm → μm
+    if (!isFinite(xj_um)) xj_um = 0;
+  }
+  return {D, sqDt:sqDt_cm*1e4, xj:Math.max(0,xj_um)};
+}
+
+function calcFlow() {
+  const TK = S.T+273.15;
+  const gs  = GASES[S.proc];
+  const g0  = gs[1] || gs[0];  // carrier gas
+  const mu  = visc(g0.mu0, 293.15, g0.Suth, TK);
+  const rho = (g0.mw*1.66e-27 * NA/g0.mw) / (22.4e-3 * TK/273.15) * g0.mw / NA / (1/(NA/(g0.mw*1.66e-27)));
+  // density via ideal gas: ρ = PM/(RT), M in kg/mol
+  const rho2 = 101325 * (g0.mw*1e-3) / (8.314 * TK);  // kg/m³
+  const D_m  = TR * 2 * 0.025;               // tube diameter in m (1 unit = 0.025 m)
+  const Q_stp= S.flowSLM / 60000;            // m³/s at STP
+  const Q_T  = Q_stp * (TK / 273.15);        // m³/s at temperature
+  const A_m2 = Math.PI * (TR * 0.025) ** 2;  // m²
+  const v_av = Q_T / A_m2;
+  const Re   = rho2 * v_av * D_m / mu;
+  const lam  = kSI*TK / (Math.sqrt(2)*Math.PI*(3e-10)**2*101325);
+  const Kn   = lam / D_m;
+  return {Re, v_av, v_max:2*v_av, mu, rho:rho2, lam, Kn};
+}
+
+// Thin film interference colour names
+function oxideColorName(nm) {
+  if (nm<10)  return 'Silicon gray';
+  if (nm<50)  return 'Straw / golden';
+  if (nm<80)  return 'Violet / purple';
+  if (nm<110) return 'Royal blue';
+  if (nm<140) return 'Blue-green';
+  if (nm<170) return 'Green';
+  if (nm<200) return 'Yellow-green';
+  if (nm<240) return 'Orange-salmon';
+  if (nm<280) return 'Lavender';
+  if (nm<330) return 'Silver-blue';
+  if (nm<390) return 'Pale gold';
+  return 'Repeating cycle';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// UI UPDATE
+// ═══════════════════════════════════════════════════════════════
+function set(id, t){ const e=document.getElementById(id); if(e) e.textContent=t; }
+function html(id, t){ const e=document.getElementById(id); if(e) e.innerHTML=t; }
+
+function fmtE(v, dp=2) { return v.toExponential(dp); }
+function fmtF(v, dp=2) { return v.toFixed(dp); }
+
+let lastUI = 0;
+function updateUI(now) {
+  if (now - lastUI < 100) return;
+  lastUI = now;
+
+  const isDiff = S.proc==='pdiff' || S.proc==='ndiff';
+  const PI = PROC_INFO[S.proc];
+
+  set('proc-name', PI.name);
+  set('proc-rxn',  PI.rxn);
+  set('proc-desc', PI.desc);
+
+  const TK = S.T+273.15;
+  set('v-T',  S.T+' °C');
+  set('v-TK', TK.toFixed(0)+' K');
+  set('v-kT', (kb*TK).toFixed(4)+' eV');
+  set('T-readout', S.T+'°C');
+
+  document.getElementById('oxide-sec').style.display = isDiff ? 'none' : 'block';
+  document.getElementById('diff-sec').style.display  = isDiff ? 'block' : 'none';
+
+  if (!isDiff) {
+    const dg = calcDG(S.t);
+    set('v-A',    fmtE(dg.A,3)+' μm');
+    set('v-B',    fmtE(dg.B,3)+' μm²/hr');
+    set('v-BA',   fmtE(dg.BA,3)+' μm/hr');
+    set('v-xox',  fmtF(dg.x,1)+' nm');
+    set('v-rate', fmtF(dg.rate,3)+' nm/min');
+    set('v-color',oxideColorName(dg.x));
+    html('prog-lbl', 'Oxide: <span style="color:var(--cyn);font-weight:600">'+fmtF(dg.x,1)+' nm</span>');
+    set('prog-tip', oxideColorName(dg.x));
+    const pct = Math.min(dg.x/800*100, 100);
+    document.getElementById('pbar').style.width = pct+'%';
+  } else {
+    const df = calcDiff(S.t);
+    const dp = DIFF[S.proc];
+    set('v-dop', dp.sym+' ('+dp.name+') '+dp.type+'-type');
+    set('v-D',   fmtE(df.D)+' cm²/s');
+    set('v-D0',  dp.D0+' cm²/s');
+    set('v-Ea',  dp.Ea+' eV');
+    set('v-sqDt',fmtF(df.sqDt,2)+' μm');
+    set('v-xj',  fmtF(df.xj,3)+' μm');
+    html('prog-lbl', 'Junction xⱼ: <span style="color:var(--cyn);font-weight:600">'+fmtF(df.xj,3)+' μm</span>');
+    set('prog-tip', 'Erfc diffusion profile');
+    const pct = Math.min(df.xj/15*100, 100);
+    document.getElementById('pbar').style.width = pct+'%';
+  }
+
+  const fl = calcFlow();
+  set('v-slm',  fmtF(S.flowSLM,1)+' SLM');
+  set('v-vav',  fmtF(fl.v_av,3)+' m/s');
+  set('v-vm',   fmtF(fl.v_max,3)+' m/s');
+  set('v-Re',   fmtF(fl.Re,0));
+  set('v-reg',  fl.Re<2300 ? '✓ Laminar (Re<2300)' : '⚠ Turbulent (Re>2300)');
+  set('v-mu',   fmtE(fl.mu)+' Pa·s');
+  set('v-mfp',  fmtE(fl.lam)+' m');
+  set('v-Kn',   fmtE(fl.Kn));
+
+  // Time display
+  const h=Math.floor(S.t/3600), m=Math.floor((S.t%3600)/60), ss=Math.floor(S.t%60);
+  set('tdisp', h+':'+String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'));
+
+  updateGasLegend();
+  updateTargetProgress();
+  refreshTooltip();
+  drawOxChart();
+  if (isDiff) { drawDiffChart(); drawConcChart(); }
+}
+
+function updateGasLegend() {
+  const gs = GASES[S.proc];
+  document.getElementById('gleg').innerHTML = gs.map(g=>
+    `<div class="gdot"><i style="background:${g.col}"></i>${g.nm} — ${g.role}</div>`).join('');
+  document.getElementById('gpanel').innerHTML = gs.map(g=>
+    `<div class="row"><span>${g.nm}</span><span style="color:${g.col}">${g.role} · MW=${g.mw}</span></div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MINI CHARTS
+// ═══════════════════════════════════════════════════════════════
+function drawOxChart() {
+  const c = document.getElementById('mch');
+  const cx = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = c.offsetWidth || 240, H = c.offsetHeight || 80;
+  c.width = W * dpr; c.height = H * dpr;
+  cx.scale(dpr, dpr);
+  cx.fillStyle='#f0f0f5'; cx.fillRect(0,0,W,H);
+
+  const maxT = S.maxTime * 3600;
+  const nPts = 60;
+  const pts = [];
+  let maxX = 0;
+  for (let i=0; i<=nPts; i++) {
+    const t = (i/nPts)*maxT;
+    const dg = calcDG(t);
+    pts.push(dg.x);
+    maxX = Math.max(maxX, dg.x);
+  }
+  if (maxX===0) return;
+
+  // Grid
+  cx.strokeStyle='rgba(80,80,140,0.18)'; cx.lineWidth=0.5;
+  for (let i=1;i<4;i++){const y=(i/4)*H;cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+
+  // Curve
+  cx.beginPath(); cx.strokeStyle='#3377ff'; cx.lineWidth=1.5;
+  pts.forEach((v,i)=>{
+    const px=(i/nPts)*W, py=H-(v/maxX)*(H-8)-4;
+    i===0?cx.moveTo(px,py):cx.lineTo(px,py);
+  });
+  cx.stroke();
+
+  // Target thickness horizontal line
+  if (S.targetOx <= maxX) {
+    const ty = H - (S.targetOx/maxX)*(H-8) - 4;
+    cx.strokeStyle='#4f46e5'; cx.lineWidth=1.5; cx.setLineDash([3,3]);
+    cx.beginPath(); cx.moveTo(0,ty); cx.lineTo(W,ty); cx.stroke();
+    cx.setLineDash([]);
+    cx.fillStyle='#4f46e5'; cx.font='bold 8px monospace';
+    cx.fillText('▶ '+S.targetOx+'nm', 2, ty-2);
+  }
+
+  // Current time vertical line
+  const tx=(S.t/maxT)*W;
+  cx.strokeStyle='#c2410c'; cx.lineWidth=1.5; cx.setLineDash([2,3]);
+  cx.beginPath();cx.moveTo(tx,0);cx.lineTo(tx,H);cx.stroke();
+  cx.setLineDash([]);
+
+  // ── Time-axis ticks & labels ──────────────────────────────
+  const totalHours = maxT / 3600;
+  // Pick a round tick interval that gives ~4-6 ticks
+  let ti;
+  if      (totalHours <=  1) ti = 0.25;
+  else if (totalHours <=  2) ti = 0.5;
+  else if (totalHours <=  4) ti = 1;
+  else if (totalHours <=  8) ti = 2;
+  else if (totalHours <= 16) ti = 4;
+  else                       ti = 6;
+
+  cx.font = '7.5px Inter,monospace';
+  for (let th = ti; th < totalHours - ti*0.3; th = +(th + ti).toFixed(6)) {
+    const px = (th / totalHours) * W;
+    // Vertical grid line
+    cx.strokeStyle = 'rgba(80,80,160,0.18)'; cx.lineWidth = 0.8; cx.setLineDash([2,2]);
+    cx.beginPath(); cx.moveTo(px, 0); cx.lineTo(px, H-11); cx.stroke();
+    cx.setLineDash([]);
+    // Tick
+    cx.strokeStyle = '#9999bb'; cx.lineWidth = 1;
+    cx.beginPath(); cx.moveTo(px, H-11); cx.lineTo(px, H-7); cx.stroke();
+    // Label — right-align so it doesn't overlap the tick
+    const lbl = th % 1 === 0 ? th+'h' : th.toFixed(2).replace(/0+$/,'')+'h';
+    cx.fillStyle = '#6666aa';
+    cx.textAlign = 'center';
+    cx.fillText(lbl, px, H-1);
+  }
+
+  // ── Y-axis thickness labels ────────────────────────────────
+  // 3 evenly spaced labels on the right edge
+  cx.textAlign = 'right';
+  cx.fillStyle = '#7777aa'; cx.font = '7.5px Inter,monospace';
+  for (let qi = 1; qi <= 3; qi++) {
+    const frac = qi / 4;
+    const py   = H - frac*(H-10) - 5;
+    const val  = (frac * maxX).toFixed(0);
+    cx.fillText(val+' nm', W-2, py+3);
+  }
+
+  // ── Corner labels ─────────────────────────────────────────
+  cx.textAlign = 'left';
+  cx.fillStyle = '#7777aa'; cx.font = '7.5px Inter,monospace';
+  cx.fillText('0', 2, H-1);
+  cx.fillStyle = '#5566aa';
+  cx.fillText(maxX.toFixed(0)+' nm', 2, 10);
+}
+
+function drawDiffChart() {
+  const c = document.getElementById('dch');
+  const cx = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = c.offsetWidth || 240, H = c.offsetHeight || 80;
+  c.width = W * dpr; c.height = H * dpr;
+  cx.scale(dpr, dpr);
+  cx.fillStyle='#f0f0f5'; cx.fillRect(0,0,W,H);
+
+  const maxT = S.maxTime * 3600;
+  const nPts = 60;
+  const pts  = [];
+  let maxXj  = 0;
+  for (let i=0; i<=nPts; i++) {
+    const xj = calcDiff((i/nPts)*maxT).xj;
+    pts.push(xj);
+    maxXj = Math.max(maxXj, xj);
+  }
+  if (maxXj === 0) return;
+
+  // Grid
+  cx.strokeStyle='rgba(80,80,140,0.18)'; cx.lineWidth=0.5;
+  for (let i=1;i<4;i++){const y=(i/4)*H;cx.beginPath();cx.moveTo(0,y);cx.lineTo(W,y);cx.stroke();}
+
+  // Curve — junction depth vs time
+  const clr = S.proc==='pdiff' ? '#15803d' : '#d97706';
+  cx.beginPath(); cx.strokeStyle=clr; cx.lineWidth=1.5;
+  pts.forEach((v,i)=>{
+    const px=(i/nPts)*W, py=H-(v/maxXj)*(H-8)-4;
+    i===0?cx.moveTo(px,py):cx.lineTo(px,py);
+  });
+  cx.stroke();
+
+  // Target junction depth horizontal line
+  const tgt = S.targetXj;
+  if (tgt <= maxXj) {
+    const ty = H-(tgt/maxXj)*(H-8)-4;
+    cx.strokeStyle='#4f46e5'; cx.lineWidth=1.5; cx.setLineDash([3,3]);
+    cx.beginPath(); cx.moveTo(0,ty); cx.lineTo(W,ty); cx.stroke();
+    cx.setLineDash([]);
+    cx.fillStyle='#4f46e5'; cx.font='bold 8px monospace';
+    cx.fillText('▶ '+tgt.toFixed(1)+'μm', 2, ty-2);
+  }
+
+  // Current time cursor (identical style to oxide chart)
+  const tx=(S.t/maxT)*W;
+  cx.strokeStyle='#c2410c'; cx.lineWidth=1.5; cx.setLineDash([2,3]);
+  cx.beginPath();cx.moveTo(tx,0);cx.lineTo(tx,H);cx.stroke();
+  cx.setLineDash([]);
+
+  // ── Time-axis ticks & labels ──
+  const totalHours = maxT/3600;
+  let ti;
+  if      (totalHours<=1)  ti=0.25;
+  else if (totalHours<=2)  ti=0.5;
+  else if (totalHours<=4)  ti=1;
+  else if (totalHours<=8)  ti=2;
+  else if (totalHours<=16) ti=4;
+  else                     ti=6;
+
+  cx.font='7.5px Inter,monospace';
+  for (let th=ti; th<totalHours-ti*0.3; th=+(th+ti).toFixed(6)) {
+    const px=(th/totalHours)*W;
+    cx.strokeStyle='rgba(80,80,160,0.18)'; cx.lineWidth=0.8; cx.setLineDash([2,2]);
+    cx.beginPath(); cx.moveTo(px,0); cx.lineTo(px,H-11); cx.stroke();
+    cx.setLineDash([]);
+    cx.strokeStyle='#9999bb'; cx.lineWidth=1;
+    cx.beginPath(); cx.moveTo(px,H-11); cx.lineTo(px,H-7); cx.stroke();
+    const lbl = th%1===0 ? th+'h' : th.toFixed(2).replace(/0+$/,'')+'h';
+    cx.fillStyle='#6666aa'; cx.textAlign='center';
+    cx.fillText(lbl, px, H-1);
+  }
+
+  // ── Y-axis xⱼ labels (right edge) ──
+  cx.textAlign='right'; cx.fillStyle='#7777aa'; cx.font='7.5px Inter,monospace';
+  for (let qi=1; qi<=3; qi++) {
+    const frac=qi/4;
+    const py=H-frac*(H-10)-5;
+    cx.fillText((frac*maxXj).toFixed(2)+' μm', W-2, py+3);
+  }
+
+  // ── Corner labels ──
+  cx.textAlign='left'; cx.fillStyle='#7777aa'; cx.font='7.5px Inter,monospace';
+  cx.fillText('0', 2, H-1);
+  cx.fillStyle='#5566aa';
+  cx.fillText(maxXj.toFixed(2)+' μm', 2, 10);
+}
+
+function drawConcChart() {
+  const c = document.getElementById('cch');
+  if (!c) return;
+  const cx = c.getContext('2d');
+  const dpr = window.devicePixelRatio || 1;
+  const W = c.offsetWidth || 240, H = c.offsetHeight || 80;
+  c.width = W * dpr; c.height = H * dpr;
+  cx.scale(dpr, dpr);
+  cx.fillStyle='#f0f0f5'; cx.fillRect(0,0,W,H);
+
+  const dp = DIFF[S.proc];
+  const TK = S.T+273.15;
+  const D  = dp.D0*Math.exp(-dp.Ea/(kb*TK));
+  const Dt = D*S.t;
+  if (Dt<=0) return;
+
+  const sqDt    = Math.sqrt(Dt);
+  const maxX_cm = sqDt*7;
+  const maxX_um = maxX_cm*1e4;
+  const Cs      = dp.Cs;
+  const logCs   = Math.log10(Cs);
+  const logBg   = 15;
+
+  // y-coord helper: frac 0 → bottom, 1 → top
+  const yOf = f => H - Math.max(0,Math.min(1,f))*(H-8) - 4;
+
+  // ── Grid at each concentration decade ──
+  cx.strokeStyle='rgba(80,80,140,0.18)'; cx.lineWidth=0.5;
+  for (let lv=Math.ceil(logBg); lv<=Math.floor(logCs); lv++) {
+    const py=yOf((lv-logBg)/(logCs-logBg));
+    cx.beginPath(); cx.moveTo(0,py); cx.lineTo(W,py); cx.stroke();
+  }
+
+  // ── Concentration profile curve ──
+  const clr = S.proc==='pdiff' ? '#15803d' : '#d97706';
+  cx.beginPath(); cx.strokeStyle=clr; cx.lineWidth=1.5;
+  for (let i=0; i<=80; i++) {
+    const x_cm=(i/80)*maxX_cm;
+    const C   =Cs*erfc(x_cm/(2*sqDt));
+    const frac=(Math.log10(Math.max(C,1e10))-logBg)/(logCs-logBg);
+    i===0 ? cx.moveTo((i/80)*W, yOf(frac)) : cx.lineTo((i/80)*W, yOf(frac));
+  }
+  cx.stroke();
+
+  // ── Live xⱼ cursor ──
+  const df  = calcDiff(S.t);
+  const jx  = Math.min((df.xj/maxX_um)*W, W-1);
+  cx.strokeStyle='#c2410c'; cx.lineWidth=1.5; cx.setLineDash([2,3]);
+  cx.beginPath(); cx.moveTo(jx,4); cx.lineTo(jx,H-12); cx.stroke();
+  cx.setLineDash([]);
+
+  // ── X-axis depth ticks (μm) ──
+  let ti;
+  if      (maxX_um<=0.5) ti=0.1;
+  else if (maxX_um<=1)   ti=0.25;
+  else if (maxX_um<=2)   ti=0.5;
+  else if (maxX_um<=5)   ti=1;
+  else if (maxX_um<=10)  ti=2;
+  else if (maxX_um<=20)  ti=5;
+  else                   ti=10;
+
+  cx.font='7px Inter,monospace';
+  for (let d=ti; d<maxX_um-ti*0.3; d=+(d+ti).toFixed(6)) {
+    const px=(d/maxX_um)*W;
+    cx.strokeStyle='rgba(80,80,160,0.18)'; cx.lineWidth=0.8; cx.setLineDash([2,2]);
+    cx.beginPath(); cx.moveTo(px,4); cx.lineTo(px,H-12); cx.stroke();
+    cx.setLineDash([]);
+    cx.strokeStyle='#9999bb'; cx.lineWidth=1;
+    cx.beginPath(); cx.moveTo(px,H-12); cx.lineTo(px,H-8); cx.stroke();
+    const lbl=d%1===0?d.toFixed(0)+'μm':d.toFixed(d<0.5?2:1).replace(/\.?0+$/,'')+'μm';
+    cx.fillStyle='#6666aa'; cx.textAlign='center';
+    cx.fillText(lbl, px, H-1);
+  }
+
+  // ── Y-axis concentration decade labels (right edge) ──
+  cx.textAlign='right'; cx.fillStyle='#7777aa'; cx.font='7px Inter,monospace';
+  const sup = n => String(n).split('').map(c=>({'0':'⁰','1':'¹','2':'²','3':'³','4':'⁴','5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'}[c]||c)).join('');
+  for (let lv=Math.ceil(logBg+0.5); lv<=Math.floor(logCs); lv++) {
+    const py=yOf((lv-logBg)/(logCs-logBg));
+    if (py<7||py>H-14) continue;
+    cx.fillText('10'+sup(lv), W-2, py+3);
+  }
+
+  // ── Corner / axis labels ──
+  cx.textAlign='left'; cx.font='7.5px Inter,monospace';
+  cx.fillStyle='#7777aa'; cx.fillText('0', 2, H-1);
+  cx.fillStyle='#5566aa'; cx.fillText('log₁₀C (cm⁻³)', 2, 9);
+  cx.textAlign='right'; cx.fillStyle='#5566aa';
+  cx.fillText(maxX_um.toFixed(maxX_um<2?2:1)+' μm', W-2, H-1);
+
+  // ── xⱼ cursor label ──
+  cx.fillStyle='#c2410c'; cx.font='bold 7.5px monospace';
+  const xjStr='xⱼ='+df.xj.toFixed(3)+' μm';
+  const onLeft=jx>W/2;
+  cx.textAlign=onLeft?'right':'left';
+  cx.fillText(xjStr, onLeft?jx-3:jx+3, 19);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 3D VISUAL UPDATES
+// ═══════════════════════════════════════════════════════════════
+
+// Thin-film interference colour stops — each entry is the colour AT that
+// thickness boundary.  Between stops the colour is linearly interpolated
+// so the wafer transitions smoothly rather than snapping.
+const OX_COLOR_STOPS = [
+  { nm:   0, col: 0x334455, emit: 0x001122 },
+  { nm:  10, col: 0xddcc77, emit: 0x332200 },
+  { nm:  50, col: 0x7744cc, emit: 0x220055 },
+  { nm:  80, col: 0x2244cc, emit: 0x001155 },
+  { nm: 110, col: 0x22bbaa, emit: 0x004433 },
+  { nm: 140, col: 0x33cc44, emit: 0x003300 },
+  { nm: 170, col: 0xccdd33, emit: 0x333300 },
+  { nm: 200, col: 0xeeaa55, emit: 0x442200 },
+  { nm: 240, col: 0xaabbee, emit: 0x222244 },
+  { nm: 280, col: 0xaabbcc, emit: 0x223344 },
+  { nm: 330, col: 0xddccaa, emit: 0x332211 },
+];
+// Reusable scratch objects so we never allocate inside the render loop
+const _oc1 = new THREE.Color(), _oc2 = new THREE.Color();
+const _oe1 = new THREE.Color(), _oe2 = new THREE.Color();
+
+// Reusable HSL target objects — avoids allocation inside the render loop
+const _hsl1 = {h:0,s:0,l:0}, _hsl2 = {h:0,s:0,l:0};
+
+function oxideColorLerp(x_nm) {
+  const s = OX_COLOR_STOPS;
+  if (x_nm <= s[0].nm) { _oc1.setHex(s[0].col); _oe1.setHex(s[0].emit); return; }
+  for (let i = 1; i < s.length; i++) {
+    if (x_nm <= s[i].nm) {
+      const t = (x_nm - s[i-1].nm) / (s[i].nm - s[i-1].nm);
+
+      // HSL interpolation — takes the shortest arc around the hue wheel so
+      // transitions stay vivid (RGB lerp turns golden→violet into muddy brown).
+      _oc1.setHex(s[i-1].col); _oc2.setHex(s[i].col);
+      _oc1.getHSL(_hsl1);       _oc2.getHSL(_hsl2);
+      let dh = _hsl2.h - _hsl1.h;
+      if (dh >  0.5) dh -= 1;   // always take the short way round
+      if (dh < -0.5) dh += 1;
+      _oc1.setHSL(
+        ((_hsl1.h + dh * t) + 1) % 1,
+        _hsl1.s + (_hsl2.s - _hsl1.s) * t,
+        _hsl1.l + (_hsl2.l - _hsl1.l) * t
+      );
+
+      // Emissive glow: RGB lerp is fine for these subtle dark values
+      _oe1.setHex(s[i-1].emit); _oe2.setHex(s[i].emit); _oe1.lerp(_oe2, t);
+      return;
+    }
+  }
+  _oc1.setHex(s[s.length-1].col); _oe1.setHex(s[s.length-1].emit);
+}
+// ── Physical constants for oxide-silicon growth ratio ────────
+// Molar volumes: Si = 12.06 cm³/mol  (28.09 g/mol ÷ 2.33 g/cm³)
+//               SiO₂ = 26.47 cm³/mol (60.09 g/mol ÷ 2.27 g/cm³)
+// Si consumed per nm SiO₂: 12.06/26.47 = 0.456
+//   → 45.6 % of oxide thickness is below the original Si surface (consumed Si)
+//   → 54.4 % is above the original Si surface (net outward growth)
+// Standard 6″ (150 mm) Si(100) substrate thickness: 650 μm
+const SI_PER_NM_OX = 0.456;   // nm Si consumed per nm SiO₂
+const OX_ABOVE     = 1 - SI_PER_NM_OX; // 0.544 — fraction sticking out
+
+// Scene-unit scale for the wafer
+// WR = 3.1 units = 75 mm radius → 1 unit = 24.2 mm
+// Substrate 650 μm → true WT = 0.650/24.2 = 0.0268 units (too thin to see)
+// We use WT = 0.065 (2.4× exaggerated) for visual clarity; the oxide is
+// scaled by the same exaggeration factor so all RATIOS remain correct.
+// Visual oxide scale: saturating function → oxide never exceeds 32 % of WT
+//   visOx(x) = WT × 0.32 × (1 − e^(−x/280))
+// At x=100 nm: ~9% WT  | x=300 nm: ~22% WT | x=1000 nm: ~30% WT
+
+function updateOxideVisuals() {
+  const isDiff = S.proc==='pdiff' || S.proc==='ndiff';
+
+  if (!isDiff) {
+    const dg   = calcDG(S.t);
+    const x_nm = dg.x;
+
+    // ── Visual oxide thickness (exaggerated but ratio-preserving) ──
+    const visOx       = WT * 0.32 * (1 - Math.exp(-x_nm / 280));
+    // Si consumed from each wafer face (same exaggeration factor applied)
+    const visSiFace   = visOx * SI_PER_NM_OX;   // depth per face
+    // Oxide extends this far beyond each original wafer face
+    const visOxOut    = visOx * OX_ABOVE;
+
+    // New Si wafer thickness: shrinks from both faces, min 40% of WT
+    const newWT = Math.max(WT * 0.40, WT - 2 * visSiFace);
+
+    // The oxide disc spans the shrunk silicon + oxide protruding on both sides
+    const oxTotalT = newWT + 2 * visOxOut;
+
+    // ── Thin-film interference colours (smooth HSL gradient between stops) ──
+    oxideColorLerp(x_nm);  // writes result into _oc1 / _oe1
+    // Fade opacity 0→0.75 over the first 8 nm so the oxide eases in
+    // rather than popping into existence at the visibility threshold.
+    const oxOpacity = Math.min(0.75, (x_nm / 8) * 0.75);
+
+    oxides.forEach((ox, i) => {
+      ox.visible = x_nm > 0;
+      ox.material.opacity = oxOpacity;
+      ox.material.color.copy(_oc1);
+      ox.material.emissive.copy(_oe1);
+
+      // Scale oxide disc in X (its base geometry height = WT*0.5)
+      ox.scale.set(oxTotalT / (WT * 0.5), 1, 1);
+      // Keep oxide centred on the wafer
+      ox.position.x = wafers[i].position.x;
+
+      // Shrink wafer in X to show Si being consumed
+      wafers[i].scale.setX(newWT / WT);
+    });
+
+    diffLayers.forEach(d => { d.material.opacity = 0; d.visible = false; });
+
+  } else {
+    oxides.forEach(o => { o.visible = false; });
+    // Restore wafer to full thickness when doing diffusion
+    wafers.forEach(w => { w.scale.setX(1); });
+
+    const df  = calcDiff(S.t);
+    const clr = S.proc==='pdiff' ? 0x15803d : 0xc2410c;
+    const opa = Math.min(df.xj / 12 * 0.65, 0.65);
+    diffLayers.forEach(d => {
+      d.visible = opa > 0;
+      d.material.color.setHex(clr);
+      d.material.opacity = opa;
+    });
+  }
+}
+
+function updateCoil(t) {
+  const heat = (S.T - 600) / 600;
+  const pulse = 0.88 + Math.sin(t*1.7)*0.12*heat;
+  coilMat.color.setRGB(Math.min(1, 0.4+heat*0.7)*pulse, heat*0.22*pulse, 0);
+  coilMat.emissive.setRGB(heat*0.55*pulse, heat*0.08, 0);
+  coilMat.emissiveIntensity = 0.6 + heat*1.8;
+  hL[0].intensity = (1.5 + heat*3)*( 0.88+Math.sin(t*1.2)*0.12);
+  hL[1].intensity = hL[2].intensity = 0.6 + heat*2.2;
+  hL.forEach(l => l.color.setRGB(1, 0.28+heat*0.12, 0));
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PARTICLE UPDATE
+// ═══════════════════════════════════════════════════════════════
+function updateParticles(dt) {
+  pSys.visible = S.showPart;
+  if (!S.showPart) return;
+  const vm = vmax();   // current target centre-line speed
+  const R  = TR;
+  const t  = performance.now()*0.001;
+  const N  = Math.floor(NMAX * S.partDensity);
+
+  for (let i=0; i<N; i++) {
+    const y = pPos[i*3+1], z = pPos[i*3+2];
+    const r = Math.sqrt(y*y+z*z);
+
+    // Target velocity at this particle's radial position under the current flow rate.
+    const targetVx = vm * Math.max(0, 1-(r*r)/(R*R));
+
+    if (targetVx > pVx[i]) {
+      // Flow rate went up → faster incoming gas pushes the slower gas ahead;
+      // ramp existing particles up to the new target quickly (like a pressure wave).
+      pVx[i] += (targetVx - pVx[i]) * Math.min(1, 20 * dt);
+    }
+    // Flow rate went down → leave existing particles at their stored speed.
+    // They bleed out naturally as they exit, giving the gradual slow-down you liked.
+
+    const vax = pVx[i];
+    // Near-wall turbulence
+    const turb = Math.max(0, (r-R*0.72)/(R*0.28)) * 0.008;
+    // Gentle swirl (Dean-like)
+    const dtheta = 0.003*(1-r/R);
+    const cosdt=Math.cos(dtheta), sindt=Math.sin(dtheta);
+    const ny=y*cosdt-z*sindt, nz=y*sindt+z*cosdt;
+
+    pPos[i*3]   += vax*dt*60;
+    pPos[i*3+1]  = ny + (Math.random()-0.5)*turb;
+    pPos[i*3+2]  = nz + (Math.random()-0.5)*turb;
+
+    // ── Wafer collision: particles cannot pass through wafer discs ──
+    // Each wafer is a disc of radius WR in the YZ plane at x=WX0+j*WS.
+    // If a particle lands inside the disc (r < WR) while within the
+    // wafer's axial thickness, push it radially outward to the gap
+    // between the wafer edge and the tube wall.
+    const halfWT = WT * 0.5 + 0.12;
+    for (let j = 0; j < NW; j++) {
+      const wx = WX0 + j * WS;
+      if (Math.abs(pPos[i*3] - wx) < halfWT) {
+        const pr = Math.sqrt(pPos[i*3+1]**2 + pPos[i*3+2]**2);
+        if (pr < WR - 0.05) {
+          // Eject radially to just outside wafer edge
+          const pushR = WR + 0.18;
+          if (pr > 0.001) {
+            const inv = pushR / pr;
+            pPos[i*3+1] *= inv;
+            pPos[i*3+2] *= inv;
+          } else {
+            // Particle at tube centre — send it to a random edge direction
+            const ang = Math.random() * Math.PI * 2;
+            pPos[i*3+1] = Math.cos(ang) * pushR;
+            pPos[i*3+2] = Math.sin(ang) * pushR;
+          }
+          // Nudge axially past the wafer face so it doesn't re-enter next frame
+          pPos[i*3] = wx + (vax >= 0 ? halfWT : -halfWT);
+          break;
+        }
+      }
+    }
+
+    // Clamp to tube
+    const rn=Math.sqrt(pPos[i*3+1]**2+pPos[i*3+2]**2);
+    if (rn>R-0.08){ const s=(R-0.08)/rn; pPos[i*3+1]*=s; pPos[i*3+2]*=s; }
+
+    // Breathing size
+    pSz[i] = 0.9 + Math.sin(t*3+i*0.7)*0.4 + (1-rn/R)*1.4;
+
+    // Wrap outlet → inlet: assign fresh velocity from current flow rate
+    if (pPos[i*3] > TL/2) {
+      const nr=Math.sqrt(Math.random())*(R-0.15);
+      const na=Math.random()*Math.PI*2;
+      pPos[i*3]   = -TL/2+Math.random()*1.5;
+      pPos[i*3+1] = Math.cos(na)*nr;
+      pPos[i*3+2] = Math.sin(na)*nr;
+      // Snapshot the current vmax at injection — this particle will travel
+      // at this speed until it exits, giving a proper advection delay.
+      pVx[i] = vmax() * Math.max(0, 1-(nr*nr)/(R*R));
+      if (Math.random()<0.15) {
+        const g=pickGas(); const rgb=hexRGB(g.col);
+        pCol[i*3]=rgb.r; pCol[i*3+1]=rgb.g; pCol[i*3+2]=rgb.b;
+      }
+    }
+  }
+  // Hide unused particles
+  for (let i=N; i<NMAX; i++) { pPos[i*3]=9999; }
+
+  pGeo.attributes.position.needsUpdate=true;
+  pGeo.attributes.color.needsUpdate=true;
+  pGeo.attributes.size.needsUpdate=true;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INLET ARROW ANIMATION
+// ═══════════════════════════════════════════════════════════════
+function updateInletArrows(t) {
+  inletArrows.forEach(a => {
+    a.mesh.position.x = a.baseX + Math.sin(t*2.5+a.phase)*0.35;
+    a.mesh.material.opacity = 0.45 + Math.sin(t*2.5+a.phase)*0.35;
+    // Colour by process
+    const gs=GASES[S.proc]; const g=gs[0];
+    const rgb=hexRGB(g.col);
+    a.mesh.material.color.setRGB(rgb.r,rgb.g,rgb.b);
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RAYCASTING / TOOLTIP
+// ═══════════════════════════════════════════════════════════════
+const ray = new THREE.Raycaster();
+const mxy = new THREE.Vector2();
+const tipEl = document.getElementById('tip');
+const allClickable = [...wafers, ...oxides];
+
+// Track which wafer is currently under the cursor so the animation loop
+// can keep the tooltip values live even when the mouse is stationary.
+let hoveredWaferIdx = -1;
+
+function refreshTooltip() {
+  if (hoveredWaferIdx < 0) return;
+  const idx = hoveredWaferIdx;
+  const isDiff = S.proc==='pdiff' || S.proc==='ndiff';
+  if (!isDiff) {
+    const dg = calcDG(S.t);
+    tipEl.innerHTML = `<b>Si Wafer #${idx+1} — SiO₂ Layer</b>
+      Thickness: ${fmtF(dg.x,1)} nm<br>
+      Growth rate: ${fmtF(dg.rate,3)} nm/min<br>
+      Color: ${oxideColorName(dg.x)}<br>
+      Interface: Si/SiO₂<br>
+      Crystal: (100) diamond cubic`;
+  } else {
+    const df = calcDiff(S.t);
+    const dp = DIFF[S.proc];
+    tipEl.innerHTML = `<b>Si Wafer #${idx+1} — Diffused Region</b>
+      Dopant: ${dp.name} (${dp.sym})<br>
+      Junction depth: ${fmtF(df.xj,3)} μm<br>
+      Surface conc: ${fmtE(dp.Cs)} cm⁻³<br>
+      √(Dt): ${fmtF(df.sqDt,2)} μm`;
+  }
+}
+
+renderer.domElement.addEventListener('mousemove', e => {
+  mxy.x = (e.clientX/window.innerWidth)*2-1;
+  mxy.y = -(e.clientY/window.innerHeight)*2+1;
+  ray.setFromCamera(mxy, camera);
+  const hits = ray.intersectObjects(allClickable);
+  if (hits.length) {
+    hoveredWaferIdx = hits[0].object.userData.idx;
+    tipEl.style.display = 'block';
+    tipEl.style.left = (e.clientX+14)+'px';
+    tipEl.style.top  = (e.clientY-24)+'px';
+    refreshTooltip();
+  } else {
+    hoveredWaferIdx = -1;
+    tipEl.style.display = 'none';
+  }
+});
+
+renderer.domElement.addEventListener('mouseleave', () => {
+  hoveredWaferIdx = -1;
+  tipEl.style.display = 'none';
+});
+
+// ═══════════════════════════════════════════════════════════════
+// CONTROLS
+// ═══════════════════════════════════════════════════════════════
+function setProc(p) {
+  S.proc=p; S.t=0;
+  document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('on'));
+  const map={dry:'dry',wet:'wet',pdiff:'pdiff',ndiff:'ndiff'};
+  document.querySelector('.ptab.'+map[p]).classList.add('on');
+  const badge=document.getElementById('proc-badge');
+  badge.className='badge '+p;
+  badge.textContent={dry:'DRY OXIDE',wet:'WET OXIDE',pdiff:'P-DIFF (B)',ndiff:'N-DIFF (P)'}[p];
+  // Reset visuals
+  oxides.forEach(o=>{o.visible=false;});
+  diffLayers.forEach(d=>{d.material.opacity=0; d.visible=false;});
+  // Refresh particle colours
+  for(let i=0;i<NMAX;i++){
+    const g=pickGas(),rgb=hexRGB(g.col);
+    pCol[i*3]=rgb.r;pCol[i*3+1]=rgb.g;pCol[i*3+2]=rgb.b;
+  }
+  pGeo.attributes.color.needsUpdate=true;
+}
+
+function onMaxTime(v) {
+  v = Math.max(0.25, Math.min(24, +v));
+  S.maxTime = v;
+  document.getElementById('l-MT').textContent = v.toFixed(2)+' hr';
+  document.getElementById('sl-MT').value  = v;
+  document.getElementById('inp-MT').value = v;
+}
+function onMaxTimeTyped(v) { onMaxTime(v); }
+let stopAtMax = false;
+function toggleMaxTimeStop() {
+  stopAtMax = !stopAtMax; S.stopAtMax = stopAtMax;
+  const b = document.getElementById('btn-mt-stop');
+  b.textContent = stopAtMax ? 'Stop at max ON' : 'Stop at max OFF';
+  b.className   = stopAtMax ? 'btn on' : 'btn';
+}
+
+function onT(v){ S.T=+v; document.getElementById('l-T').textContent=v+' °C'; }
+function onF(v){ S.flowSLM=(+v)*0.25; document.getElementById('l-F').textContent=fmtF(S.flowSLM,1)+' SLM'; }
+function onS(v){ S.speed=+v; document.getElementById('l-S').textContent=v+'×'; }
+function onPD(v){ S.partDensity=+v/100; document.getElementById('l-P').textContent=v+'%'; }
+
+function syncTargetOxUI(v) {
+  v = Math.max(1, Math.min(2000, +v));
+  S.targetOx = v;
+  S.targetReached = false;
+  document.getElementById('tgt-reached').style.display = 'none';
+  document.getElementById('sl-tgt-ox').value  = v;
+  document.getElementById('inp-tgt-ox').value = v;
+  document.getElementById('l-tgt-ox').textContent = v + ' nm';
+}
+function onTargetOx(v)      { syncTargetOxUI(v); }
+function onTargetOxTyped(v) { syncTargetOxUI(v); }
+
+function syncTargetXjUI(v) {
+  v = Math.max(0.1, Math.min(20, +v));
+  S.targetXj = v;
+  S.targetReached = false;
+  document.getElementById('tgt-reached').style.display = 'none';
+  document.getElementById('sl-tgt-xj').value  = v;
+  document.getElementById('inp-tgt-xj').value = v;
+  document.getElementById('l-tgt-xj').textContent = v.toFixed(1) + ' μm';
+}
+function onTargetXj(v)      { syncTargetXjUI(v); }
+function onTargetXjTyped(v) { syncTargetXjUI(v); }
+
+function autoStopToggle() {
+  S.autoStop = !S.autoStop;
+  const lbl = S.autoStop ? '⏹ Auto-stop ON' : '⏹ Auto-stop OFF';
+  const cls = S.autoStop ? 'btn on' : 'btn';
+  ['btn-autostop','btn-autostop2'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) { b.textContent = lbl; b.className = cls; }
+  });
+}
+
+function updateTargetProgress() {
+  const isDiff = S.proc==='pdiff' || S.proc==='ndiff';
+  document.getElementById('tgt-oxide-wrap').style.display = isDiff ? 'none' : 'block';
+  document.getElementById('tgt-diff-wrap').style.display  = isDiff ? 'block' : 'none';
+
+  let pct = 0, reached = false;
+  if (!isDiff) {
+    const dg = calcDG(S.t);
+    pct = Math.min(dg.x / S.targetOx * 100, 100);
+    reached = dg.x >= S.targetOx;
+  } else {
+    const df = calcDiff(S.t);
+    pct = Math.min(df.xj / S.targetXj * 100, 100);
+    reached = df.xj >= S.targetXj;
+  }
+
+  document.getElementById('tgt-bar').style.width = pct.toFixed(1) + '%';
+  document.getElementById('tgt-pct').textContent = pct.toFixed(1) + '%';
+
+  // Change bar colour as it approaches target
+  const hue = Math.round((1 - pct/100) * 200);  // blue→yellow→red
+  document.getElementById('tgt-bar').style.background =
+    `linear-gradient(90deg,#113366,hsl(${hue},100%,55%))`;
+
+  if (reached && !S.targetReached) {
+    S.targetReached = true;
+    document.getElementById('tgt-reached').style.display = 'block';
+    if (S.autoStop) {
+      S.running = false;
+      const b = document.getElementById('btn-run');
+      b.textContent = '▶ Run'; b.className = 'btn';
+    }
+  }
+}
+
+let running=true;
+function toggleRun(){
+  running=!running; S.running=running;
+  const b=document.getElementById('btn-run');
+  b.textContent=running?'⏸ Pause':'▶ Run';
+  b.className=running?'btn on':'btn';
+}
+function resetSim(){
+  S.t=0;
+  S.targetReached=false;
+  S.running=true;
+  const b=document.getElementById('btn-run');
+  b.textContent='⏸ Pause'; b.className='btn on';
+  document.getElementById('tgt-reached').style.display='none';
+  oxides.forEach(o=>{o.visible=false;});
+  diffLayers.forEach(d=>{d.material.opacity=0; d.visible=false;});
+  wafers.forEach(w=>{w.scale.setX(1);});  // restore Si substrate thickness
+}
+
+function toggleVF(){
+  S.showVF=!S.showVF;
+  vfArrows.forEach(a=>a.visible=S.showVF);
+  const b=document.getElementById('btn-vf');
+  b.textContent=S.showVF?'↗ Velocity Field ON':'↗ Velocity Field';
+  b.className=S.showVF?'btn on':'btn';
+}
+function togglePT(){
+  S.showPart=!S.showPart;
+  const b=document.getElementById('btn-pt');
+  b.textContent=S.showPart?'◉ Particles ON':'◉ Particles OFF';
+  b.className=S.showPart?'btn on':'btn';
+}
+function toggleAR(){
+  S.autoRot=!S.autoRot; ctrl.autoRotate=S.autoRot;
+  const b=document.getElementById('btn-ar');
+  b.textContent=S.autoRot?'⟳ Auto-Rotate ON':'⟳ Auto-Rotate OFF';
+  b.className=S.autoRot?'btn on':'btn';
+}
+function toggleXS(){
+  S.xs=!S.xs;
+  // Show/hide half of tube for cross-section
+  // We clip camera slightly
+  const b=document.getElementById('btn-xs');
+  b.textContent=S.xs?'✂ Cross-Section ON':'✂ Cross-Section OFF';
+  b.className=S.xs?'btn on':'btn';
+  if (S.xs) { camera.position.set(0, 0, 35); ctrl.target.set(0,0,0); ctrl.update(); }
+}
+
+function setView(v) {
+  const positions={
+    iso:[22,13,32], side:[0,0,45], top:[0,40,1], front:[45,0,0]
+  };
+  const p=positions[v]||positions.iso;
+  camera.position.set(...p);
+  ctrl.target.set(0,0,0);
+  ctrl.update();
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ANIMATION LOOP
+// ═══════════════════════════════════════════════════════════════
+let lastFrame=0;
+function animate(now) {
+  requestAnimationFrame(animate);
+  const dt = Math.min((now-lastFrame)/1000, 0.05);
+  lastFrame = now;
+  const t  = now*0.001;
+
+  if (S.running) {
+    S.t += dt * S.speed;
+    if (S.stopAtMax && S.t >= S.maxTime * 3600) {
+      S.t = S.maxTime * 3600;
+      S.running = false;
+      const b = document.getElementById('btn-run');
+      b.textContent = '▶ Run'; b.className = 'btn';
+    }
+  }
+
+  updateParticles(dt);
+  updateOxideVisuals();
+  updateCoil(t);
+  updateInletArrows(t);
+  updateUI(now);
+
+  ctrl.update();
+  renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Init
+updateGasLegend();
+animate(0);
+</script>
+</body>
+</html>
