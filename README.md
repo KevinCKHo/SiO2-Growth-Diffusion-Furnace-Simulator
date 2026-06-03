@@ -9,7 +9,7 @@ An interactive, browser-based 3D simulation of a semiconductor thermal furnace. 
 ## Screenshots
 
 ### Dry Oxidation — Isometric View
-![Dry oxidation simulation showing 3D furnace with wafers, gas particles, and live oxide growth chart](screenshots/dryoxidation.png)
+![Dry oxidation simulation showing 3D furnace with wafers, gas particles, and live oxide growth chart](screenshots/dry_oxidation.png)
 
 ---
 
