@@ -6,6 +6,19 @@ An interactive, browser-based 3D simulation of a semiconductor thermal furnace. 
 
 ---
 
+## Screenshots
+
+### Dry Oxidation — Isometric View
+![Dry oxidation simulation showing 3D furnace with wafers, gas particles, and live oxide growth chart](screenshots/overview.jpg)
+
+### Velocity Field — End-On Cross-Section
+![End view showing the parabolic Hagen-Poiseuille velocity field across the tube cross-section](screenshots/velocity-field.jpg)
+
+### P-Type Diffusion (Boron) — Dual Charts
+![P-Diff mode showing junction depth vs time chart and log concentration profile with live cursors](screenshots/diffusion.jpg)
+
+---
+
 ## Live Demo
 
 Open `index.html` directly in any modern browser — no server, no install, no dependencies required.
